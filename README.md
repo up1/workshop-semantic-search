@@ -6,6 +6,7 @@
 * Semantic Search
   * WHY : Context & Intent
   * Vector search and embedding
+  * Knowledge Graph
   * Ambiguity Handling
   * Hybrid search approach
 * Workflow
