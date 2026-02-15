@@ -34,7 +34,14 @@ $dotnet add package Npgsql
 ## Run the .NET project
 ```
 $dotnet run
+
 ```
+
+Run with parameters:
+```
+$dotnet run -- --process migrate
+````
+
 
 ## Check data in PostgreSQL database
 ```
@@ -42,3 +49,4 @@ SELECT * FROM pg_extension WHERE extname = 'vector'
 
 SELECT * FROM documents;
 ```
+
