@@ -1,7 +1,7 @@
 # Embedding process with Ollama
 
 
-## Install [Ollama](https://ollama.com/)
+## 1. Install [Ollama](https://ollama.com/)
 
 Install embedding model with Ollama:
 * https://huggingface.co/spaces/mteb/leaderboard
@@ -19,22 +19,21 @@ Try to access to Ollama API:
 * http://localhost:11434/
 
 
-## Install Ollama library in .NET project
+## 2. Install Ollama library in .NET project
 ```
 $ dotnet new console
 $dotnet add package Ollama
 ```
 
 
-## Install PostgreSQL library in .NET project
+## 3. Install PostgreSQL library in .NET project
 ```
 $dotnet add package Npgsql
 ```
 
-## Run the .NET project
+## 4. Run the .NET project
 ```
 $dotnet run
-
 ```
 
 Run with parameters:
@@ -42,12 +41,15 @@ Run with parameters:
 * keyword_search - to run keyword search with full-text search and trigram search
 * semantic_search - to run semantic search with vector similarity search
 * hybrid_search - to run hybrid search with both keyword search and semantic search
+
 ```
 $dotnet run -- --process migrate
-````
+$dotnet run -- --process keyword_search
+$dotnet run -- --process semantic_search
+$dotnet run -- --process hybrid_search
+```
 
-
-## Check data in PostgreSQL database
+## 5. Check data in PostgreSQL database
 ```
 SELECT * FROM pg_extension WHERE extname = 'vector'
 
@@ -63,15 +65,22 @@ SELECT * FROM documents;
 * <%> - Jaccard distance (binary vectors)
 
 
-```SELECT id, content, embedding <=> '[0.1, 0.2, ...]' AS distance
+```
+SELECT id, content, embedding <=> '[0.1, 0.2, ...]' AS distance
 FROM documents
 ORDER BY distance ASC
 LIMIT 5;
 ```
 
-## Improve performance with index (with distance)
+## 6. Improve performance with index (with distance)
 ```
 CREATE INDEX ON documents USING ivfflat (embedding vector_cosine_ops) WITH (lists = 100);
 
 CREATE INDEX ON documents USING hnsw (embedding vector_l2_ops) WITH (m = 16, ef_construction = 64);
 ``` 
+
+## 7. Hybrid search with both keyword search and semantic search
+* The hybrid search combines full-text search and semantic (vector) search using Reciprocal Rank Fusion (RRF)
+  * semantic — ranks documents by cosine distance (<=>)
+  * fulltext — ranks documents by ts_rank on the search_vector column
+* Weights default to 0.7 semantic / 0.3 full-text
