@@ -17,3 +17,35 @@ $docker compose ps
 ```
 
 Go to http://localhost:5050
+
+## 3. Check data in PostgreSQL database 
+```
+SELECT * FROM pg_extension;
+SELECT * FROM pg_extension WHERE extname = 'vector'
+
+SELECT * FROM documents;
+```
+
+Search with full-text search
+```
+-- search term: "chamkho"
+SELECT id, doc_name, doc_desc FROM documents
+WHERE search_vector @@ plainto_tsquery('chamkho', 'search term')
+ORDER BY ts_rank(search_vector, plainto_tsquery('chamkho', 'search term')) DESC
+LIMIT 5;
+
+-- search term with "chamkho" and "english"
+SELECT id, doc_name, doc_desc FROM documents
+WHERE search_vector @@ plainto_tsquery('chamkho', 'เอกสาร') OR
+      search_vector @@ plainto_tsquery('english', 'เอกสาร')
+ORDER BY ts_rank(search_vector, plainto_tsquery('chamkho', 'เอกสาร')) DESC,
+         ts_rank(search_vector, plainto_tsquery('english', 'เอกสาร')) DESC
+LIMIT 5;
+```
+
+Search with trigram search
+```
+SELECT id, doc_name, doc_desc, similarity(doc_name, 'เอกสาร')
+FROM documents
+ORDER BY similarity(doc_name, 'เอกสาร') DESC
+```
