@@ -1,6 +1,6 @@
 services:
   db:
-    image: pgvector/pgvector:pg18-trixie
+    build: ./db
     environment:
       POSTGRES_USER: user
       POSTGRES_PASSWORD: password
