@@ -24,6 +24,11 @@ SELECT * FROM pg_extension;
 SELECT * FROM pg_extension WHERE extname = 'vector'
 
 SELECT * FROM documents;
+
+
+
+SET enable_seqscan = OFF
+SET enable_seqscan = ON;
 ```
 
 Search with full-text search
