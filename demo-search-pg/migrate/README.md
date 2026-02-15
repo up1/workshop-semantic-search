@@ -38,6 +38,9 @@ $dotnet run
 ```
 
 Run with parameters:
+* migrate - to create table and insert data with embedding vector
+* keyword_search - to run keyword search with full-text search and trigram search
+* semantic_search - to run semantic search with vector similarity search
 ```
 $dotnet run -- --process migrate
 ````
