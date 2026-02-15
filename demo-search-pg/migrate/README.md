@@ -41,6 +41,7 @@ Run with parameters:
 * migrate - to create table and insert data with embedding vector
 * keyword_search - to run keyword search with full-text search and trigram search
 * semantic_search - to run semantic search with vector similarity search
+* hybrid_search - to run hybrid search with both keyword search and semantic search
 ```
 $dotnet run -- --process migrate
 ````

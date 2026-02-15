@@ -29,12 +29,138 @@ else if (process == "semantic_search")
     var input = "";
     Console.WriteLine("Enter search query:");
     input = Console.ReadLine() ?? "";
-    await RunSearch(input);
+    await RunSearchWithSemantic(input);
+}
+else if (process == "hybrid_search")
+{
+    var input = "";
+    Console.WriteLine("Enter search query:");
+    input = Console.ReadLine() ?? "";
+    await RunSearchWithHybrid(input);
 }
 else
 {
     Console.WriteLine("Usage: dotnet run -- --process migrate");
     return;
+}
+
+async Task RunSearchWithHybrid(string input)
+{
+    var connectionString = "Host=localhost;Port=5432;Database=mydb;Username=user;Password=password";
+    var ollamaModel = "bge-m3";
+    var topK = 10;
+    var ftsWeight = 0.3;      // Weight for full-text search score
+    var semanticWeight = 0.7; // Weight for semantic search score
+
+    // Step 1: Generate embedding for the input query using Ollama
+    Console.WriteLine($"Hybrid searching for: \"{input}\"");
+    using var ollama = new OllamaApiClient();
+    var response = await ollama.Embeddings.GenerateEmbeddingAsync(
+        model: ollamaModel,
+        prompt: input);
+
+    var embedding = response.Embedding;
+    var vectorStr = "[" + string.Join(",",
+        embedding!.Select(v => v.ToString(CultureInfo.InvariantCulture))) + "]";
+
+    // Step 2: Hybrid search combining full-text search (RRF) + semantic search (RRF)
+    // Uses Reciprocal Rank Fusion (RRF) to combine both ranking signals
+    await using var conn = new NpgsqlConnection(connectionString);
+    await conn.OpenAsync();
+
+    var sql = @"
+        WITH semantic AS (
+            SELECT id, doc_name, doc_desc,
+                   ROW_NUMBER() OVER (ORDER BY embedding <=> @embedding::vector ASC) AS rank_pos,
+                   embedding <=> @embedding::vector AS distance
+            FROM documents
+            ORDER BY distance ASC
+            LIMIT 50
+        ),
+        fulltext AS (
+            SELECT id, doc_name, doc_desc,
+                   ROW_NUMBER() OVER (ORDER BY ts_rank(search_vector, 
+                       plainto_tsquery('english', @input) || plainto_tsquery('chamkho', @input)
+                   ) DESC) AS rank_pos,
+                   ts_rank(search_vector, 
+                       plainto_tsquery('english', @input) || plainto_tsquery('chamkho', @input)
+                   ) AS fts_rank
+            FROM documents
+            WHERE search_vector @@ (plainto_tsquery('english', @input) || plainto_tsquery('chamkho', @input))
+            ORDER BY fts_rank DESC
+            LIMIT 50
+        )
+        SELECT 
+            COALESCE(s.id, f.id) AS id,
+            COALESCE(s.doc_name, f.doc_name) AS doc_name,
+            COALESCE(s.doc_desc, f.doc_desc) AS doc_desc,
+            COALESCE(s.distance, 1.0) AS distance,
+            COALESCE(f.fts_rank, 0.0) AS fts_rank,
+            -- RRF score: 1/(k+rank), k=60 is a common constant
+            @semanticWeight * COALESCE(1.0 / (60 + s.rank_pos), 0) 
+            + @ftsWeight * COALESCE(1.0 / (60 + f.rank_pos), 0) AS hybrid_score
+        FROM semantic s
+        FULL OUTER JOIN fulltext f ON s.id = f.id
+        ORDER BY hybrid_score DESC
+        LIMIT @topK";
+
+    await using var cmd = new NpgsqlCommand(sql, conn);
+    cmd.Parameters.AddWithValue("embedding", vectorStr);
+    cmd.Parameters.AddWithValue("input", input);
+    cmd.Parameters.AddWithValue("topK", topK);
+    cmd.Parameters.AddWithValue("semanticWeight", ftsWeight);     // note: positional param names
+    cmd.Parameters.AddWithValue("ftsWeight", semanticWeight);
+
+    // Fix: Npgsql matches parameters by name, so correct the naming
+    cmd.Parameters.Clear();
+    cmd.Parameters.AddWithValue("embedding", vectorStr);
+    cmd.Parameters.AddWithValue("input", input);
+    cmd.Parameters.AddWithValue("topK", topK);
+    cmd.Parameters.AddWithValue("semanticWeight", semanticWeight);
+    cmd.Parameters.AddWithValue("ftsWeight", ftsWeight);
+
+    await using var reader = await cmd.ExecuteReaderAsync();
+
+    // Step 3: Display results in table format
+    var results = new List<(int Id, string DocName, string DocDesc, double Distance, double FtsRank, double HybridScore)>();
+    while (await reader.ReadAsync())
+    {
+        var id = reader.GetInt32(0);
+        var docName = reader.GetString(1);
+        var docDesc = reader.IsDBNull(2) ? "" : reader.GetString(2);
+        var distance = reader.GetDouble(3);
+        var ftsRank = reader.GetFloat(4);
+        var hybridScore = reader.GetDouble(5);
+        results.Add((id, docName, docDesc, distance, ftsRank, hybridScore));
+    }
+    await conn.CloseAsync();
+
+    if (results.Count == 0)
+    {
+        Console.WriteLine("No results found.");
+        return;
+    }
+
+    // Print table header
+    var colId = 4;
+    var colName = Math.Max(10, results.Max(r => r.DocName.Length)) + 2;
+    var colDesc = Math.Max(15, results.Min(r => Math.Min(r.DocDesc.Length, 50))) + 2;
+    var colDist = 10;
+    var colFts = 10;
+    var colHybrid = 12;
+
+    Console.WriteLine();
+    Console.WriteLine($"{"ID".PadRight(colId)} | {"Doc Name".PadRight(colName)} | {"Description".PadRight(colDesc)} | {"Cos Dist".PadRight(colDist)} | {"FTS Rank".PadRight(colFts)} | {"Hybrid".PadRight(colHybrid)}");
+    Console.WriteLine(new string('-', colId + colName + colDesc + colDist + colFts + colHybrid + 15));
+
+    foreach (var (id, docName, docDesc, distance, ftsRank, hybridScore) in results)
+    {
+        var desc = docDesc.Length > 50 ? docDesc[..47] + "..." : docDesc;
+        Console.WriteLine($"{id.ToString().PadRight(colId)} | {docName.PadRight(colName)} | {desc.PadRight(colDesc)} | {distance:F6} | {ftsRank:F6} | {hybridScore:F6}");
+    }
+
+    Console.WriteLine();
+    Console.WriteLine($"Found {results.Count} results (weights: semantic={semanticWeight}, fts={ftsWeight}).");
 }
 
 async Task RunSearchWithFullTextSearch(string input)
@@ -102,7 +228,7 @@ async Task RunSearchWithFullTextSearch(string input)
     Console.WriteLine($"Found {results.Count} results.");
 }
 
-async Task RunSearch(string input)
+async Task RunSearchWithSemantic(string input)
 {
     var connectionString = "Host=localhost;Port=5432;Database=mydb;Username=user;Password=password";
     var ollamaModel = "bge-m3";
