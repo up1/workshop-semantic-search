@@ -30,7 +30,7 @@ $dotnet add package Qdrant.Client
 ## 3. Migrate data from PostgreSQL to Qdrant
 * From table=`documents` in PostgreSQL to collection=`my_documents` in Qdrant
 ```
-$dotnet run
+$dotnet run -- --process migrate
 ```
 
 ## 4. Check data in Qdrant
@@ -44,4 +44,11 @@ $curl --location 'http://localhost:6333/collections/my_documents/points/query' \
     "with_payload": true, 
     "with_vectors": true
 }'
+```
+
+## 5. Search in Qdrant
+```
+$dotnet run -- --process search --query "ภาษา"
+
+$dotnet run -- --process search --query "ภาษา" --top 3
 ```
