@@ -51,6 +51,7 @@ async Task RunSearch(string input)
     await using var conn = new NpgsqlConnection(connectionString);
     await conn.OpenAsync();
 
+    // Use cosine distance operator <=> to find nearest neighbors based on embedding
     var sql = @"
         SELECT id, doc_name, doc_desc, embedding <=> @embedding::vector AS distance
         FROM documents
