@@ -56,14 +56,25 @@ SELECT * FROM pg_extension WHERE extname = 'vector'
 SELECT * FROM documents;
 ```
 
-## Query with vector similarity search
+## 6. Query with full-text search
+```
+SELECT id, doc_name, doc_desc,
+	   ts_rank(search_vector, 
+		   plainto_tsquery('english', @input) || plainto_tsquery('chamkho', @input)
+	   ) AS rank
+FROM documents
+WHERE search_vector @@ (plainto_tsquery('english', @input) || plainto_tsquery('chamkho', @input))
+ORDER BY rank DESC
+LIMIT 5
+```
+
+## 7. Query with vector similarity search
 * <-> - L2 distance
 * <#> - (negative) inner product
 * <=> - cosine distance
 * <+> - L1 distance
 * <~> - Hamming distance (binary vectors)
 * <%> - Jaccard distance (binary vectors)
-
 
 ```
 SELECT id, content, embedding <=> '[0.1, 0.2, ...]' AS distance
@@ -72,14 +83,14 @@ ORDER BY distance ASC
 LIMIT 5;
 ```
 
-## 6. Improve performance with index (with distance)
+## 8. Improve performance with index (with distance)
 ```
 CREATE INDEX ON documents USING ivfflat (embedding vector_cosine_ops) WITH (lists = 100);
 
 CREATE INDEX ON documents USING hnsw (embedding vector_l2_ops) WITH (m = 16, ef_construction = 64);
 ``` 
 
-## 7. Hybrid search with both keyword search and semantic search
+## 9. Hybrid search with both keyword search and semantic search
 * The hybrid search combines full-text search and semantic (vector) search using Reciprocal Rank Fusion (RRF)
   * semantic — ranks documents by cosine distance (<=>)
   * fulltext — ranks documents by ts_rank on the search_vector column
