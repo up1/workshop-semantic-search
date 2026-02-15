@@ -50,3 +50,24 @@ SELECT * FROM pg_extension WHERE extname = 'vector'
 SELECT * FROM documents;
 ```
 
+## Query with vector similarity search
+* <-> - L2 distance
+* <#> - (negative) inner product
+* <=> - cosine distance
+* <+> - L1 distance
+* <~> - Hamming distance (binary vectors)
+* <%> - Jaccard distance (binary vectors)
+
+
+```SELECT id, content, embedding <=> '[0.1, 0.2, ...]' AS distance
+FROM documents
+ORDER BY distance ASC
+LIMIT 5;
+```
+
+## Improve performance with index (with distance)
+```
+CREATE INDEX ON documents USING ivfflat (embedding vector_cosine_ops) WITH (lists = 100);
+
+CREATE INDEX ON documents USING hnsw (embedding vector_l2_ops) WITH (m = 16, ef_construction = 64);
+``` 
