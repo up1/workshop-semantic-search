@@ -33,6 +33,12 @@ SET enable_seqscan = ON;
 
 Search with full-text search
 ```
+SELECT to_tsvector('english', search_text) 
+FROM documents;
+
+SELECT to_tsvector('chamkho', search_text) 
+FROM documents;
+
 SELECT * 
 FROM documents 
 WHERE to_tsvector('chamkho', search_text) @@ to_tsquery('chamkho', 'เอก');
