@@ -84,6 +84,19 @@ LIMIT 5;
 ```
 
 ## 8. Improve performance with index (with distance)
+* Use IVFFlat when you need exact results and can tolerate slightly slower searches
+* Use HNSW when you need fast searches and can accept slight inaccuracies
+
+### IVFFlat (Inverted File Flat) index:
+* Suitable for exact nearest neighbor searches
+* Divides the vector space into clusters, speeding up searches by first identifying relevant clusters
+* Good balance of search speed and accuracy
+
+### HNSW (Hierarchical Navigable Small World) index:
+* Designed for approximate nearest-neighbor searches
+* Creates a graph structure for swift navigation between vectors
+* Extremely fast, but may occasionally miss the absolute nearest neighbor
+
 ```
 CREATE INDEX ON documents USING ivfflat (embedding vector_cosine_ops) WITH (lists = 100);
 

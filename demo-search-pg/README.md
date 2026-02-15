@@ -64,4 +64,19 @@ Search with trigram search
 SELECT id, doc_name, doc_desc, similarity(doc_name, 'เอกสาร')
 FROM documents
 ORDER BY similarity(doc_name, 'เอกสาร') DESC
+
+-- where similarity is greater than 0.3
+SELECT id, doc_name, doc_desc, similarity(doc_name, 'เอกสาร')
+FROM documents
+WHERE doc_name % 'เอกสาร'
+ORDER BY similarity(doc_name, 'เอกสาร') DESC
+LIMIT 5;
+
+-- set similarity threshold to 0.2
+SELECT set_limit(0.2);
+SELECT id, doc_name, doc_desc, similarity(doc_name, 'เอกสาร')
+FROM documents
+WHERE doc_name % 'เอกสาร'
+ORDER BY similarity(doc_name, 'เอกสาร') DESC
+LIMIT 5;
 ```
