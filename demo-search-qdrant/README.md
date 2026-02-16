@@ -8,6 +8,10 @@ $docker compose logs -f qdrant
 $docker compose ps
 ```
 
+Ports of Qdrant:
+* REST API: 6333
+* GRPC API: 6334
+
 Check status of Qdrant with
 ```
 $curl --location 'http://localhost:6333/healthz' \
@@ -55,4 +59,21 @@ $curl --location 'http://localhost:6333/collections/my_documents/points/query' \
 $dotnet run -- --process search --query "ภาษา"
 
 $dotnet run -- --process search --query "ภาษา" --top 3
+```
+
+## 6. Delete collection in Qdrant
+```$curl --location 'http://localhost:6333/collections/my_documents' \
+--header 'api-key: demo' \
+--header 'Cookie: MANTIS_PROJECT_COOKIE=0' \
+--request DELETE
+```
+
+## 7. Migate data from PostgreSQL to Qdrant with REST API
+```
+$dotnet run -- --process migrate-with-rest-api
+```
+
+## 8. Search in Qdrant with REST API
+```
+$dotnet run -- --process search-with-rest-api --query "learning" --top 5
 ```
