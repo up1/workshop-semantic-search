@@ -76,6 +76,15 @@ LIMIT 5
 * <~> - Hamming distance (binary vectors)
 * <%> - Jaccard distance (binary vectors)
 
+| Algorithm | Key Characteristic | Ideal Data Type | Primary Use Case |
+|---|---|---|---|
+| L2 (Euclidean) | Straight line | Continuous, Dense | Geolocation, Raw Audio/Image |
+| Inner Product | Magnitude + Angle | Unnormalized Embeddings | Recommender Systems, Popularity Bias |
+| Cosine | Angle (Orientation) | Normalized Embeddings | Semantic Search, Text Similarity |
+| L1 (Manhattan) | Grid (Sum of Abs) | Sparse, High-Dim | Bag-of-Words, Robust Statistics |
+| Hamming | Bit differences | Binary (Fixed Length) | Image Hashing, Error Correction |
+| Jaccard | Intersection / Union | Sets / Binary | Object Detection (IoU), Plagiarism |
+
 ```
 SELECT id, content, embedding <=> '[0.1, 0.2, ...]' AS distance
 FROM documents
