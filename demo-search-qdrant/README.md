@@ -29,6 +29,10 @@ $dotnet add package Qdrant.Client
 
 ## 3. Migrate data from PostgreSQL to Qdrant
 * From table=`documents` in PostgreSQL to collection=`my_documents` in Qdrant
+* Use batch size = 50 for migration
+* Use embedding model=bge-m3
+* Use API key=demo for authentication
+* Use GRPC protocol for communication with Qdrant
 ```
 $dotnet run -- --process migrate
 ```
