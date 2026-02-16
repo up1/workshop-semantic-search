@@ -67,13 +67,28 @@ switch (process)
         }
         await RunSearchWithRestApi(query, topK);
         break;
+    case "hybrid-search-with-rest-api":
+        if (string.IsNullOrWhiteSpace(query))
+        {
+            Console.WriteLine("Error: --query is required for search process.");
+            Console.WriteLine("Usage: dotnet run -- --process hybrid-search-with-rest-api --query \"your search text\" [--top 5]");
+            return;
+        }
+        await RunHybridSearchWithRestApi(query, topK);
+        break;
     default:
         Console.WriteLine("Usage:");
         Console.WriteLine("  dotnet run -- --process migrate");
         Console.WriteLine("  dotnet run -- --process migrate-with-rest-api");
         Console.WriteLine("  dotnet run -- --process search --query \"your search text\" [--top 5]");
         Console.WriteLine("  dotnet run -- --process search-with-rest-api --query \"your search text\" [--top 5]");
+        Console.WriteLine("  dotnet run -- --process hybrid-search-with-rest-api --query \"your search text\" [--top 5]");
         return;
+}
+
+async Task RunHybridSearchWithRestApi(string query, int topK)
+{
+    throw new NotImplementedException();
 }
 
 async Task RunSearchWithRestApi(string searchQuery, int top)
