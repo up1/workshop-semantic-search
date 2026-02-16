@@ -86,9 +86,113 @@ switch (process)
         return;
 }
 
-async Task RunHybridSearchWithRestApi(string query, int topK)
+// Hybrid Search: Dense (Ollama embedding) + Sparse (Qdrant/bm25) with RRF fusion
+// Requires collection created with named vectors:
+//   PUT /collections/{name}
+//   {
+//     "vectors": { "dense": { "size": 1024, "distance": "Cosine" } },
+//     "sparse_vectors": { "sparse": {} }
+//   }
+// And points upserted with both "dense" (float[]) and "sparse" ({ text, model: "Qdrant/bm25" }) vectors.
+async Task RunHybridSearchWithRestApi(string searchQuery, int top)
 {
-    throw new NotImplementedException();
+    const string qdrantRestUrl = $"http://{qdrantHost}:6333";
+    const string apiKey = "demo";
+
+    Console.WriteLine($"=== Hybrid Search (REST) for: \"{searchQuery}\" (top {top}) ===\n");
+
+    using var httpClient = new HttpClient
+    {
+        BaseAddress = new Uri(qdrantRestUrl),
+        Timeout = TimeSpan.FromMinutes(5)
+    };
+    httpClient.DefaultRequestHeaders.Add("api-key", apiKey);
+
+    // Step 1 – Generate dense embedding for the search query via Ollama
+    Console.WriteLine("Generating dense embedding via Ollama...");
+    using var ollamaClient = new OllamaApiClient(
+        new HttpClient { BaseAddress = new Uri(ollamaBaseUrl + "/api"), Timeout = TimeSpan.FromMinutes(10) });
+
+    var embeddingResponse = await ollamaClient.Embeddings.GenerateEmbeddingAsync(
+        model: ollamaModel,
+        prompt: searchQuery);
+
+    if (embeddingResponse.Embedding == null || embeddingResponse.Embedding.Count == 0)
+    {
+        Console.WriteLine("Error: Failed to generate embedding for the query.");
+        return;
+    }
+
+    var queryVector = embeddingResponse.Embedding.Select(d => (float)d).ToArray();
+
+    // Step 2 – Hybrid Search via Qdrant Query API
+    //   prefetch 1: Dense vector search (Ollama embedding) using named vector "dense"
+    //   prefetch 2: Sparse BM25 search (Qdrant built-in inference) using named vector "sparse"
+    //   fusion: Reciprocal Rank Fusion (RRF) to combine both result sets
+    Console.WriteLine("Performing hybrid search (Dense + BM25 Sparse) with RRF fusion...\n");
+
+    var prefetchLimit = top * 4; // prefetch more candidates for better fusion quality
+
+    var hybridQuery = new
+    {
+        prefetch = new object[]
+        {
+            new
+            {
+                query = queryVector,
+                @using = "dense",
+                limit = prefetchLimit
+            },
+            new
+            {
+                query = new
+                {
+                    text = searchQuery,
+                    model = "Qdrant/bm25"
+                },
+                @using = "sparse",
+                limit = prefetchLimit
+            }
+        },
+        query = new { fusion = "rrf" },
+        limit = top,
+        with_payload = true
+    };
+
+    var searchBody = System.Text.Json.JsonSerializer.Serialize(hybridQuery);
+    var searchResponse = await httpClient.PostAsync(
+        $"/collections/{collectionName}/points/query",
+        new StringContent(searchBody, System.Text.Encoding.UTF8, "application/json"));
+    searchResponse.EnsureSuccessStatusCode();
+
+    var searchJson = await searchResponse.Content.ReadAsStringAsync();
+    var searchDoc = System.Text.Json.JsonDocument.Parse(searchJson);
+    var resultsElement = searchDoc.RootElement.GetProperty("result");
+
+    // Query API returns { "result": { "points": [...] } }
+    var results = resultsElement.GetProperty("points").EnumerateArray().ToList();
+
+    if (results.Count == 0)
+    {
+        Console.WriteLine("No results found.");
+        return;
+    }
+
+    Console.WriteLine($"Found {results.Count} results (RRF fused):\n");
+    foreach (var result in results)
+    {
+        var score = result.GetProperty("score").GetDouble();
+        var id = result.GetProperty("id").GetUInt64();
+        var payload = result.GetProperty("payload");
+
+        var docName = payload.TryGetProperty("doc_name", out var name) ? name.GetString() ?? "N/A" : "N/A";
+        var docDesc = payload.TryGetProperty("doc_desc", out var desc) ? desc.GetString() ?? "N/A" : "N/A";
+
+        Console.WriteLine($"  Score: {score:F4} | ID: {id}");
+        Console.WriteLine($"  Name:  {docName}");
+        Console.WriteLine($"  Desc:  {docDesc}");
+        Console.WriteLine();
+    }
 }
 
 async Task RunSearchWithRestApi(string searchQuery, int top)

@@ -80,7 +80,6 @@ $dotnet run -- --process search-with-rest-api --query "learning" --top 5
 
 ## 9. Hybrid search in Qdrant with REST API
 * Sparse search with BM25 algorithm + Dense search with vector similarity search
-* Dense search with vector similarity search only
 
 ```
 $dotnet run -- --process hybrid-search-with-rest-api --query "learning" --top 5
