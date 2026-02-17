@@ -10,7 +10,7 @@ const string pgConnectionString = "Host=localhost;Port=5432;Database=mydb;Userna
 
 const string qdrantHost = "localhost";
 const int qdrantPort = 6334;  // gRPC port
-const string collectionName = "my_documents";
+const string collectionName = "demo2";
 
 const string ollamaBaseUrl = "http://localhost:11434";
 const string ollamaModel = "bge-m3";             // BGE-M3 multilingual embedding model
@@ -230,22 +230,23 @@ async Task RunSearchWithRestApi(string searchQuery, int top)
 
     var queryVector = embeddingResponse.Embedding.Select(d => (float)d).ToArray();
 
-    // Step 2 – Search Qdrant via REST API
+    // Step 2 – Search Qdrant via REST Query API (using named vector "dense")
     var searchBody = System.Text.Json.JsonSerializer.Serialize(new
     {
-        vector = queryVector,
+        query = queryVector,
+        @using = "dense",
         limit = top,
         with_payload = true
     });
 
     var searchResponse = await httpClient.PostAsync(
-        $"/collections/{collectionName}/points/search",
+        $"/collections/{collectionName}/points/query",
         new StringContent(searchBody, System.Text.Encoding.UTF8, "application/json"));
     searchResponse.EnsureSuccessStatusCode();
 
     var searchJson = await searchResponse.Content.ReadAsStringAsync();
     var searchDoc = System.Text.Json.JsonDocument.Parse(searchJson);
-    var results = searchDoc.RootElement.GetProperty("result").EnumerateArray().ToList();
+    var results = searchDoc.RootElement.GetProperty("result").GetProperty("points").EnumerateArray().ToList();
 
     if (results.Count == 0)
     {
@@ -307,8 +308,15 @@ async Task RunMigrateWithRestApi()
     {
         vectors = new
         {
-            size = embeddingDimension,
-            distance = "Cosine"
+            dense = new
+            {
+                size = embeddingDimension,
+                distance = "Cosine"
+            }
+        },
+        sparse_vectors = new
+        {
+            sparse = new { }
         }
     });
     var createResponse = await httpClient.PutAsync(
@@ -375,7 +383,11 @@ async Task RunMigrateWithRestApi()
             points.Add(new
             {
                 id = doc.Id,
-                vector = embedding,
+                vector = new Dictionary<string, object>
+                {
+                    ["dense"] = embedding,
+                    ["sparse"] = new { text = textToEmbed, model = "Qdrant/bm25" }
+                },
                 payload = new Dictionary<string, string>
                 {
                     ["doc_name"] = doc.DocName,
@@ -433,12 +445,22 @@ async Task RunMigrate()
         await qdrantClient.DeleteCollectionAsync(collectionName);
     }
 
-    await qdrantClient.CreateCollectionAsync(collectionName, new VectorParams
-    {
-        Size = (ulong)embeddingDimension,
-        Distance = Distance.Cosine
-    });
-    Console.WriteLine($"Collection '{collectionName}' created (dim={embeddingDimension}, cosine).");
+    // Create collection with named dense vector + sparse vector for hybrid search (BM25)
+    await qdrantClient.CreateCollectionAsync(
+        collectionName,
+        new VectorParamsMap
+        {
+            Map =
+            {
+                ["dense"] = new VectorParams
+                {
+                    Size = (ulong)embeddingDimension,
+                    Distance = Distance.Cosine
+                }
+            }
+        },
+        sparseVectorsConfig: new SparseVectorConfig(("sparse", new SparseVectorParams())));
+    Console.WriteLine($"Collection '{collectionName}' created with dense (dim={embeddingDimension}, cosine) + sparse (BM25) vectors.");
 
     // Step 2 – Read documents from PostgreSQL
     Console.WriteLine("\n=== Step 2: Read documents from PostgreSQL ===");
@@ -495,10 +517,11 @@ async Task RunMigrate()
 
             var embedding = embeddingResponse.Embedding.Select(d => (float)d).ToArray();
 
+            // Use named vector "dense" for the embedding
             var point = new PointStruct
             {
                 Id = new PointId { Num = (ulong)doc.Id },
-                Vectors = embedding
+                Vectors = ("dense", embedding)
             };
 
             point.Payload.Add("doc_name", doc.DocName);
@@ -553,11 +576,12 @@ async Task RunSearch(string searchQuery, int top)
 
     var queryVector = embeddingResponse.Embedding.Select(d => (float)d).ToArray();
 
-    // Search Qdrant
+    // Search Qdrant using named vector "dense"
     var results = await qdrantClient.SearchAsync(
         collectionName,
         queryVector,
-        limit: (ulong)top);
+        limit: (ulong)top,
+        vectorName: "dense");
 
     if (results.Count == 0)
     {
