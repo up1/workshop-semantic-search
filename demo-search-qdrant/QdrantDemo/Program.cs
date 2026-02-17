@@ -160,6 +160,11 @@ async Task RunHybridSearchWithRestApi(string searchQuery, int top)
     };
 
     var searchBody = System.Text.Json.JsonSerializer.Serialize(hybridQuery);
+    // print the request body for debugging
+    Console.WriteLine("Hybrid Search Request Body:");
+    Console.WriteLine(searchBody);
+    Console.WriteLine();
+
     var searchResponse = await httpClient.PostAsync(
         $"/collections/{collectionName}/points/query",
         new StringContent(searchBody, System.Text.Encoding.UTF8, "application/json"));

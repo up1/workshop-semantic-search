@@ -23,6 +23,9 @@ $curl --location 'http://localhost:6333/collections' \
 --header 'Cookie: MANTIS_PROJECT_COOKIE=0'
 ```
 
+Qdrant Dashboard
+* http://localhost:6333/dashboard
+
 ## 2. Create .Net project and install Nuget package
 * [Qdrant client](https://github.com/qdrant/qdrant-dotnet)
 ```
