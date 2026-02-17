@@ -32,6 +32,22 @@ services:
       timeout: 5s
       retries: 5
 
+  prometheus:
+    image: prom/prometheus
+    volumes:
+      - ./configs/prometheus.yml:/etc/prometheus/prometheus.yml
+    ports:
+      - "9090:9090"
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+    
+    # depend on with health of qdrant01 and qdrant02
+    depends_on:
+      qdrant01:
+        condition: service_healthy
+      qdrant02:
+        condition: service_healthy
+
 volumes:
   qdrant_data01:
   qdrant_data02:

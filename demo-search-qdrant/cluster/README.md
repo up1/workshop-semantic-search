@@ -32,3 +32,12 @@ Check cluster status
 ```
 $curl http://localhost:6333/cluster/status
 ```
+
+## 3. Start Prometheus for monitoring
+```
+$docker compose up -d prometheus
+$docker compose ps
+$docker compose logs -f prometheus
+``` 
+Access to Prometheus Dashboard
+* http://localhost:9090
