@@ -1,5 +1,5 @@
 # Demo with cluster of Vector Databases with [Qdrant](https://qdrant.tech/)
-
+* [Distributed Deployment Guide](https://qdrant.tech/documentation/guides/distributed_deployment/)
 
 ## 1. Start first node of Qdrant cluster
 ```
